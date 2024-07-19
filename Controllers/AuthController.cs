@@ -1,7 +1,10 @@
-﻿using Dapper;
+﻿using AutoMapper;
+using Dapper;
 using DotNet_WebAPI.Data;
 using DotNet_WebAPI.Dtos;
 using DotNet_WebAPI.Hellpers;
+using DotNet_WebAPI.Helpers;
+using DotNet_WebAPI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Data;
@@ -16,11 +19,17 @@ namespace DotNet_WebAPI.Controllers
     {
         private readonly DataContextDapper _dapper;
         private readonly AuthHelper _authHelper;
+        private readonly ReusableSql _reusableSql;
+        private readonly IMapper _mapper;
         public AuthController(IConfiguration config)
         {
             _dapper = new DataContextDapper(config);
             _authHelper = new AuthHelper(config);
-
+            _reusableSql = new ReusableSql(config);
+            _mapper = new Mapper(new MapperConfiguration(cfg =>
+            {
+                cfg.CreateMap<UsersRegistrationDto, UsersCompleteModels>();
+            }));
         }
 
         [AllowAnonymous]
@@ -42,30 +51,10 @@ namespace DotNet_WebAPI.Controllers
                     };
                     if (_authHelper.SetPassword(userForSetPassword))
                     {
+                        UsersCompleteModels sqlAddUser = _mapper.Map<UsersCompleteModels>(userForRegistration);
+                        sqlAddUser.Active = true;
 
-                        string sqlAddUser = @"EXEC TutorialAppSchema.spUser_Upsert
-                            @FirstName = '" + userForRegistration.FirstName +
-                            "', @LastName = '" + userForRegistration.LastName +
-                            "', @Email = '" + userForRegistration.Email +
-                            "', @Gender = '" + userForRegistration.Gender +
-                            "', @Active = 1" +
-                            ", @JobTitle = '" + userForRegistration.JobTitle +
-                            "', @Department = '" + userForRegistration.Department +
-                            "', @Salary = '" + userForRegistration.Salary + "'";
-                        // string sqlAddUser = @"
-                        //     INSERT INTO TutorialAppSchema.Users(
-                        //         [FirstName],
-                        //         [LastName],
-                        //         [Email],
-                        //         [Gender],
-                        //         [Active]
-                        //     ) VALUES (" +
-                        //         "'" + userForRegistration.FirstName + 
-                        //         "', '" + userForRegistration.LastName +
-                        //         "', '" + userForRegistration.Email + 
-                        //         "', '" + userForRegistration.Gender + 
-                        //         "', 1)";
-                        if (_dapper.ExecuteSql(sqlAddUser))
+                        if (_reusableSql.UpsertUser(sqlAddUser))
                         {
                             return Ok();
                         }
