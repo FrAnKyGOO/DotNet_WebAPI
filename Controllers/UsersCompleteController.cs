@@ -1,6 +1,8 @@
-﻿using DotNet_WebAPI.Data;
+﻿using Dapper;
+using DotNet_WebAPI.Data;
 using DotNet_WebAPI.Models;
 using Microsoft.AspNetCore.Mvc;
+using System.Data;
 
 namespace DotNet_WebAPI.Controllers
 {
@@ -15,27 +17,29 @@ namespace DotNet_WebAPI.Controllers
         }
 
         [HttpGet("GetUsers/{userId}/{isActive}")]
-        // public IEnumerable<User> GetUsers()
         public IEnumerable<UsersCompleteModels> GetUsers(int userId, bool isActive)
         {
             string sql = @"EXEC TutorialAppSchema.spUsers_Get";
-            string parameters = "";
+            string stringParameters = "";
+            DynamicParameters sqlParameters = new DynamicParameters();
 
             if (userId != 0)
             {
-                parameters += ", @UserId=" + userId.ToString();
+                stringParameters += ", @UserId=@UserIdParameter";
+                sqlParameters.Add("@UserIdParameter", userId, DbType.Int32);
             }
             if (isActive)
             {
-                parameters += ", @Active=" + isActive.ToString();
+                stringParameters += ", @Active=@ActiveParameter";
+                sqlParameters.Add("@ActiveParameter", isActive, DbType.Boolean);
             }
 
-            if (parameters.Length > 0)
+            if (stringParameters.Length > 0)
             {
-                sql += parameters.Substring(1);//, parameters.Length);
+                sql += stringParameters.Substring(1);
             }
 
-            IEnumerable<UsersCompleteModels> users = _dapper.LoadData<UsersCompleteModels>(sql);
+            IEnumerable<UsersCompleteModels> users = _dapper.LoadDataWithParameters<UsersCompleteModels>(sql, sqlParameters);
             return users;
         }
 
@@ -43,17 +47,29 @@ namespace DotNet_WebAPI.Controllers
         public IActionResult UpsertUser(UsersCompleteModels user)
         {
             string sql = @"EXEC TutorialAppSchema.spUser_Upsert
-            @FirstName = '" + user.FirstName +
-                "', @LastName = '" + user.LastName +
-                "', @Email = '" + user.Email +
-                "', @Gender = '" + user.Gender +
-                "', @Active = '" + user.Active +
-                "', @JobTitle = '" + user.JobTitle +
-                "', @Department = '" + user.Department +
-                "', @Salary = '" + user.Salary +
-                "', @UserId = " + user.UserId;
+            @FirstName = @FirstNameParameter, 
+            @LastName = @LastNameParameter, 
+            @Email = @EmailParameter, 
+            @Gender = @GenderParameter, 
+            @Active = @ActiveParameter, 
+            @JobTitle = @JobTitleParameter, 
+            @Department = @DepartmentParameter, 
+            @Salary = @SalaryParameter, 
+            @UserId = @UserIdParameter";
 
-            if (_dapper.ExecuteSql(sql))
+            DynamicParameters sqlParameters = new DynamicParameters();
+
+            sqlParameters.Add("@FirstNameParameter", user.FirstName, DbType.String);
+            sqlParameters.Add("@LastNameParameter", user.LastName, DbType.String);
+            sqlParameters.Add("@EmailParameter", user.Email, DbType.String);
+            sqlParameters.Add("@GenderParameter", user.Gender, DbType.String);
+            sqlParameters.Add("@ActiveParameter", user.Active, DbType.Boolean);
+            sqlParameters.Add("@JobTitleParameter", user.JobTitle, DbType.String);
+            sqlParameters.Add("@DepartmentParameter", user.Department, DbType.String);
+            sqlParameters.Add("@SalaryParameter", user.Salary, DbType.Decimal);
+            sqlParameters.Add("@UserIdParameter", user.UserId, DbType.Int32);
+
+            if (_dapper.ExecuteSqlWithParameters(sql, sqlParameters))
             {
                 return Ok();
             }
@@ -64,10 +80,12 @@ namespace DotNet_WebAPI.Controllers
         [HttpDelete("DeleteUser/{userId}")]
         public IActionResult DeleteUser(int userId)
         {
-            string sql = @"TutorialAppSchema.spUser_Delete
-            @UserId = " + userId.ToString();
+            string sql = @"TutorialAppSchema.spUser_Delete @UserId = @UserIdParameter";
 
-            if (_dapper.ExecuteSql(sql))
+            DynamicParameters sqlParameters = new DynamicParameters();
+            sqlParameters.Add("@UserIdParameter", userId, DbType.Int32);
+
+            if (_dapper.ExecuteSqlWithParameters(sql, sqlParameters))
             {
                 return Ok();
             }
