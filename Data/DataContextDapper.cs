@@ -37,25 +37,27 @@ namespace DotNet_WebAPI.Data
             return dbConnection.Execute(sql);
         }
 
-        public bool ExecuteSqlWithParameters(string sql, List<SqlParameter> parameters)
+        public bool ExecuteSqlWithParameters(string sql, DynamicParameters parameters)
         {
-            SqlCommand commandWithParameter = new SqlCommand(sql);
+            IDbConnection dbConnection = new SqlConnection(_config.GetConnectionString("DefaultConnection"));
+            return dbConnection.Execute(sql, parameters) > 0;
+            //SqlCommand commandWithParameter = new SqlCommand(sql);
 
-            foreach (SqlParameter param in parameters)
-            {
-                commandWithParameter.Parameters.Add(param);
-            }
+            //foreach (SqlParameter param in parameters)
+            //{
+            //    commandWithParameter.Parameters.Add(param);
+            //}
 
-            SqlConnection dbConnection = new SqlConnection(_config.GetConnectionString("DefaultConnection"));
-            dbConnection.Open();
+            //SqlConnection dbConnection = new SqlConnection(_config.GetConnectionString("DefaultConnection"));
+            //dbConnection.Open();
 
-            commandWithParameter.Connection = dbConnection;
+            //commandWithParameter.Connection = dbConnection;
 
-            int rowaffected = commandWithParameter.ExecuteNonQuery();
+            //int rowaffected = commandWithParameter.ExecuteNonQuery();
 
-            dbConnection.Close();
+            //dbConnection.Close();
 
-            return rowaffected > 0;
+            //return rowaffected > 0;
         }
     }
 }
