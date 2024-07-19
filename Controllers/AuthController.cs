@@ -1,8 +1,10 @@
-﻿using DotNet_WebAPI.Data;
+﻿using Dapper;
+using DotNet_WebAPI.Data;
 using DotNet_WebAPI.Dtos;
 using DotNet_WebAPI.Hellpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Data;
 
 namespace DotNet_WebAPI.Controllers
 {
@@ -77,39 +79,36 @@ namespace DotNet_WebAPI.Controllers
         }
 
         [AllowAnonymous]
-        [HttpPost("UsersLogin")]
-        public IActionResult UsersLogint(UsersLoginDto usersLoging)
+        [HttpPost("Login")]
+        public IActionResult Login(UsersLoginDto userForLogin)
         {
-            string sqlForHashAndSalt = @"
-                SELECT 
-                    [Email],
-                    [PasswordHash],
-                    [PasswordSalt] 
-                FROM TutorialAppSchema.Auth 
-                WHERE Email = '" + usersLoging.Email + "' AND Active = 'Y'";
+            string sqlForHashAndSalt = @"EXEC TutorialAppSchema.spLoginConfirmation_Get 
+                @Email = @EmailParam";
 
-            UserLoginConfirmationDto userLoginConfirmation = _dapper
-                .LoadDataSingle<UserLoginConfirmationDto>(sqlForHashAndSalt);
+            DynamicParameters sqlParameters = new DynamicParameters();
 
-            byte[] passwordHash = _authHelper.GetPasswordHash(usersLoging.Password, userLoginConfirmation.PasswordSalt);
+            // SqlParameter emailParameter = new SqlParameter("@EmailParam", SqlDbType.VarChar);
+            // emailParameter.Value = userForLogin.Email;
+            // sqlParameters.Add(emailParameter);
 
-            //if (passwordHash == userLoginConfirmation.PasswordHash)
-            //{
+            sqlParameters.Add("@EmailParam", userForLogin.Email, DbType.String);
 
-            //}
+            UserLoginConfirmationDto userForConfirmation = _dapper
+                .LoadDataSingleWithParameters<UserLoginConfirmationDto>(sqlForHashAndSalt, sqlParameters);
 
-            for (int i = 0; i < passwordHash.Length; i++)
+            byte[] passwordHash = _authHelper.GetPasswordHash(userForLogin.Password, userForConfirmation.PasswordSalt);
+
+            for (int index = 0; index < passwordHash.Length; index++)
             {
-                if (passwordHash[i] != userLoginConfirmation.PasswordHash[i])
+                if (passwordHash[index] != userForConfirmation.PasswordHash[index])
                 {
-                    return StatusCode(401, "Incorrent password!");
+                    return StatusCode(401, "Incorrect password!");
                 }
             }
 
             string userIdSql = @"
-                SELECT UserId 
-                FROM TutorialAppSchema.Users 
-                WHERE Email = '" + usersLoging.Email + "' AND Active = 'Y'";
+                SELECT UserId FROM TutorialAppSchema.Users WHERE Email = '" +
+                userForLogin.Email + "'";
 
             int userId = _dapper.LoadDataSingle<int>(userIdSql);
 
